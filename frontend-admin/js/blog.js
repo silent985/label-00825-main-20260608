@@ -137,8 +137,43 @@ async function viewArticle(id) {
             <div class="preview-content">${markdownToHtml(post.content)}</div>
           </div>
         </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header">
+            <span class="card-title">评论 <span id="commentCount" style="color:var(--color-text-placeholder);font-weight:400;font-size:13px;margin-left:6px;">(0)</span></span>
+          </div>
+          <div class="card-body">
+            <div id="commentForm" style="margin-bottom:24px;padding:16px;background:var(--color-primary-bg);border-radius:var(--radius-md);border:1px solid #DBEAFE;">
+              <div class="form-row">
+                <div class="form-group" style="margin-bottom:12px;">
+                  <label class="form-label">昵称 <span class="required">*</span></label>
+                  <input class="form-input" id="commentAuthorName" maxlength="50" placeholder="请输入昵称">
+                </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                  <label class="form-label">邮箱（可选）</label>
+                  <input class="form-input" id="commentAuthorEmail" maxlength="100" placeholder="example@mail.com">
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:12px;">
+                <label class="form-label">评论内容 <span class="required">*</span></label>
+                <textarea class="form-textarea" id="commentContent" rows="3" maxlength="2000" placeholder="说点什么吧..."></textarea>
+              </div>
+              <div style="display:flex;justify-content:flex-end;">
+                <button class="btn btn-primary" id="commentSubmitBtn" onclick="submitComment(${post.id})">
+                  ${Icons.plus} 发表评论
+                </button>
+              </div>
+              <div style="font-size:12px;color:var(--color-text-placeholder);margin-top:8px;">提示：评论提交后需经管理员审核才会显示。</div>
+            </div>
+            <div id="commentList">
+              <div style="text-align:center;padding:24px;color:var(--color-text-placeholder);">加载评论中...</div>
+            </div>
+          </div>
+        </div>
       </div>
     `;
+
+    loadArticleComments(post.id);
   } catch (e) {
     container.innerHTML = `
       <div class="empty-state">
@@ -147,5 +182,113 @@ async function viewArticle(id) {
         <button class="btn btn-primary" onclick="navigateTo('blog')">返回博客</button>
       </div>
     `;
+  }
+}
+
+// 加载文章评论
+async function loadArticleComments(postId) {
+  const listEl = document.getElementById('commentList');
+  const countEl = document.getElementById('commentCount');
+  if (!listEl) return;
+  try {
+    const res = await api.getPostComments(postId);
+    const list = res.data || [];
+    if (countEl) countEl.textContent = `(${list.length})`;
+    if (list.length === 0) {
+      listEl.innerHTML = `
+        <div class="empty-state" style="padding:32px;">
+          ${Icons.fileText}
+          <p>暂无评论，快来抢沙发吧～</p>
+        </div>
+      `;
+      return;
+    }
+    // 构建嵌套结构（一层回复）
+    const roots = list.filter(c => !c.parent_id);
+    const childrenMap = {};
+    list.forEach(c => {
+      if (c.parent_id) {
+        (childrenMap[c.parent_id] = childrenMap[c.parent_id] || []).push(c);
+      }
+    });
+
+    listEl.innerHTML = roots.map(c => renderCommentItem(c, childrenMap[c.id] || [])).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--color-danger);">评论加载失败</div>';
+  }
+}
+
+function renderCommentItem(c, replies) {
+  const adminBadge = c.is_admin
+    ? '<span class="tag tag-blue" style="margin-left:6px;">管理员</span>'
+    : '';
+  const initial = (c.author_name || '?').charAt(0).toUpperCase();
+  const repliesHtml = replies.length === 0 ? '' : `
+    <div style="margin-top:12px;padding-left:16px;border-left:2px solid var(--color-border-light);display:flex;flex-direction:column;gap:12px;">
+      ${replies.map(r => `
+        <div style="display:flex;gap:10px;">
+          <div class="user-avatar" style="width:28px;height:28px;font-size:12px;flex-shrink:0;background:${r.is_admin ? 'var(--color-primary)' : 'var(--color-success)'};color:#fff;">${(r.author_name || '?').charAt(0).toUpperCase()}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);">
+              ${escapeHtml(r.author_name)}
+              ${r.is_admin ? '<span class="tag tag-blue" style="margin-left:6px;">管理员</span>' : ''}
+              <span style="font-weight:400;color:var(--color-text-placeholder);font-size:12px;margin-left:8px;">${formatDate(r.created_at)}</span>
+            </div>
+            <div style="font-size:13px;color:var(--color-text-secondary);line-height:1.7;margin-top:4px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(r.content)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  return `
+    <div style="display:flex;gap:12px;padding:16px 0;border-bottom:1px solid var(--color-border-light);">
+      <div class="user-avatar" style="width:36px;height:36px;font-size:14px;flex-shrink:0;background:${c.is_admin ? 'var(--color-primary)' : 'var(--color-success)'};color:#fff;">${initial}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;font-size:14px;font-weight:600;color:var(--color-text-primary);">
+          ${escapeHtml(c.author_name)}${adminBadge}
+          <span style="font-weight:400;color:var(--color-text-placeholder);font-size:12px;margin-left:8px;">${formatDate(c.created_at)}</span>
+        </div>
+        <div style="font-size:14px;color:var(--color-text-secondary);line-height:1.7;margin-top:6px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(c.content)}</div>
+        ${repliesHtml}
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function submitComment(postId) {
+  const nameEl = document.getElementById('commentAuthorName');
+  const emailEl = document.getElementById('commentAuthorEmail');
+  const contentEl = document.getElementById('commentContent');
+  const btn = document.getElementById('commentSubmitBtn');
+  if (!nameEl || !contentEl) return;
+
+  const author_name = nameEl.value.trim();
+  const author_email = emailEl ? emailEl.value.trim() : '';
+  const content = contentEl.value.trim();
+
+  if (!author_name) { showToast('请输入昵称', 'warning'); return; }
+  if (!content) { showToast('请输入评论内容', 'warning'); return; }
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+  try {
+    await api.createComment({ post_id: postId, author_name, author_email, content });
+    showToast('评论已提交，等待审核', 'success');
+    contentEl.value = '';
+  } catch (e) {
+    showToast('评论失败: ' + e.message, 'error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
   }
 }
