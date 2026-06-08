@@ -51,6 +51,20 @@ const api = {
   updateProfile: (id, data) => request(`/profiles/${id}`, { method: 'PUT', body: data }),
   deleteProfile: (id) => request(`/profiles/${id}`, { method: 'DELETE' }),
 
+  // 评论
+  getCommentsByPost: (postId) => request(`/comments/post/${postId}`),
+  getCommentCount: (postId) => request(`/comments/post/${postId}/count`),
+  submitComment: (data) => request('/comments', { method: 'POST', body: data }),
+  getComments: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/comments?${query}`);
+  },
+  getCommentStats: () => request('/comments/stats'),
+  approveComment: (id) => request(`/comments/${id}/approve`, { method: 'PUT' }),
+  rejectComment: (id) => request(`/comments/${id}/reject`, { method: 'PUT' }),
+  replyComment: (id, data) => request(`/comments/${id}/reply`, { method: 'PUT', body: data }),
+  deleteComment: (id) => request(`/comments/${id}`, { method: 'DELETE' }),
+
   // 统计
   getStats: () => request('/stats'),
 };

@@ -1,7 +1,11 @@
 const express = require('express');
 const { getDb } = require('./database');
+const { authMiddleware } = require('./routes-auth');
 
 const router = express.Router();
+
+// 个人资料为管理功能，全部接口需要鉴权
+router.use(authMiddleware);
 
 // 获取所有个人资料
 router.get('/', (req, res) => {

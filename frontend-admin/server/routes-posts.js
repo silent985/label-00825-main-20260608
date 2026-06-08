@@ -1,22 +1,32 @@
 const express = require('express');
 const { getDb } = require('./database');
+const { authMiddleware } = require('./routes-auth');
 
 const router = express.Router();
 
-// 获取所有文章
+// ========== 公开接口 ==========
+
+// 获取文章列表（未登录时强制只返回已发布文章）
 router.get('/', (req, res) => {
   const { category, keyword, status, page = 1, pageSize = 10 } = req.query;
   const db = getDb();
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const isAdmin = !!token && require('./routes-auth').tokens.get(token);
+
   let where = 'WHERE 1=1';
   const params = [];
+
+  // 非管理员只能看到已发布文章
+  if (!isAdmin) {
+    where += " AND status = 'published'";
+  } else if (status) {
+    where += ' AND status = ?';
+    params.push(status);
+  }
 
   if (category && category !== '全部') {
     where += ' AND category = ?';
     params.push(category);
-  }
-  if (status) {
-    where += ' AND status = ?';
-    params.push(status);
   }
   if (keyword) {
     where += ' AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)';
@@ -37,23 +47,33 @@ router.get('/', (req, res) => {
 // 获取分类列表
 router.get('/categories', (req, res) => {
   const db = getDb();
-  const rows = db.prepare('SELECT DISTINCT category FROM posts WHERE category IS NOT NULL').all();
+  const rows = db.prepare("SELECT DISTINCT category FROM posts WHERE category IS NOT NULL AND status = 'published'").all();
   const categories = rows.map(r => r.category);
   res.json({ code: 200, data: categories });
 });
 
-// 获取单篇文章
+// 获取单篇文章（未登录只能看已发布，管理员可看全部）
 router.get('/:id', (req, res) => {
   const db = getDb();
   const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
   if (!post) {
     return res.status(404).json({ code: 404, message: '文章不存在' });
   }
-  // 增加浏览量
-  db.prepare('UPDATE posts SET view_count = view_count + 1 WHERE id = ?').run(req.params.id);
-  post.view_count += 1;
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const isAdmin = !!token && require('./routes-auth').tokens.get(token);
+  if (!isAdmin && post.status !== 'published') {
+    return res.status(404).json({ code: 404, message: '文章不存在' });
+  }
+  // 增加浏览量（仅已发布文章统计）
+  if (post.status === 'published') {
+    db.prepare('UPDATE posts SET view_count = view_count + 1 WHERE id = ?').run(req.params.id);
+    post.view_count += 1;
+  }
   res.json({ code: 200, data: post });
 });
+
+// ========== 管理接口（需要登录） ==========
+router.use(authMiddleware);
 
 // 创建文章
 router.post('/', (req, res) => {

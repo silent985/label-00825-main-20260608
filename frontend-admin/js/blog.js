@@ -107,15 +107,23 @@ const onBlogSearch = debounce(function (val) {
   loadBlogPosts();
 }, 400);
 
+let articleComments = [];
+let currentPostId = null;
+
 // 文章详情
 async function viewArticle(id) {
   navigateTo('article');
+  currentPostId = id;
   const container = document.getElementById('page-article');
   container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--color-text-placeholder);">加载中...</div>';
 
   try {
-    const res = await api.getPost(id);
-    const post = res.data;
+    const [postRes, commentsRes] = await Promise.all([
+      api.getPost(id),
+      api.getCommentsByPost(id).catch(() => ({ data: [] }))
+    ]);
+    const post = postRes.data;
+    articleComments = commentsRes.data || [];
 
     container.innerHTML = `
       <div style="max-width:800px;margin:0 auto;">
@@ -131,10 +139,45 @@ async function viewArticle(id) {
                 <span>${Icons.folder} ${post.category}</span>
                 <span>${Icons.calendar} ${formatDate(post.created_at)}</span>
                 <span>${Icons.eye} ${post.view_count} 次阅读</span>
+                <span>${Icons.user} ${articleComments.length} 条评论</span>
                 ${post.tags ? `<span>${Icons.tag} ${post.tags}</span>` : ''}
               </div>
             </div>
             <div class="preview-content">${markdownToHtml(post.content)}</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:24px;">
+          <div class="card-body">
+            <h3 style="font-size:18px;font-weight:600;color:var(--color-text-primary);margin-bottom:20px;display:flex;align-items:center;gap:8px;">
+              ${Icons.user} 评论 (${articleComments.length})
+            </h3>
+
+            <div class="comment-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">昵称 <span class="required">*</span></label>
+                  <input class="form-input" id="commentNickname" placeholder="请输入您的昵称" maxlength="50">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">邮箱（选填）</label>
+                  <input class="form-input" id="commentEmail" type="email" placeholder="不会公开显示" maxlength="100">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">评论内容 <span class="required">*</span></label>
+                <textarea class="form-textarea" id="commentContent" rows="3" placeholder="写下您的看法..." maxlength="1000"></textarea>
+              </div>
+              <div style="display:flex;justify-content:flex-end;">
+                <button class="btn btn-primary" id="submitCommentBtn" onclick="submitArticleComment()">
+                  ${Icons.edit} 发表评论
+                </button>
+              </div>
+            </div>
+
+            <div id="commentList" style="margin-top:24px;">
+              ${renderArticleComments()}
+            </div>
           </div>
         </div>
       </div>
@@ -148,4 +191,67 @@ async function viewArticle(id) {
       </div>
     `;
   }
+}
+
+function renderArticleComments() {
+  if (articleComments.length === 0) {
+    return `
+      <div style="text-align:center;padding:40px 0;color:var(--color-text-placeholder);">
+        ${Icons.fileText}
+        <p style="margin-top:8px;font-size:14px;">暂无评论，快来发表第一条评论吧！</p>
+      </div>
+    `;
+  }
+  return articleComments.map(c => `
+    <div class="comment-item">
+      <div class="comment-header">
+        <div class="comment-avatar">${getInitials(c.nickname)}</div>
+        <div class="comment-info">
+          <div class="comment-nickname">${escapeArticleHtml(c.nickname)}</div>
+          <div class="comment-time">${formatDate(c.created_at)}</div>
+        </div>
+      </div>
+      <div class="comment-content">${escapeArticleHtml(c.content)}</div>
+      ${c.reply ? `
+        <div class="comment-reply">
+          <div class="comment-reply-header">
+            ${Icons.user} 管理员回复 · ${formatDate(c.reply_at)}
+          </div>
+          <div class="comment-reply-content">${escapeArticleHtml(c.reply)}</div>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+async function submitArticleComment() {
+  const nickname = document.getElementById('commentNickname').value.trim();
+  const email = document.getElementById('commentEmail').value.trim();
+  const content = document.getElementById('commentContent').value.trim();
+  if (!nickname) { showToast('请输入昵称', 'warning'); return; }
+  if (!content) { showToast('请输入评论内容', 'warning'); return; }
+
+  const btn = document.getElementById('submitCommentBtn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  try {
+    await api.submitComment({ post_id: currentPostId, nickname, email, content });
+    showToast('评论提交成功，等待审核', 'success');
+    document.getElementById('commentNickname').value = '';
+    document.getElementById('commentEmail').value = '';
+    document.getElementById('commentContent').value = '';
+  } catch (e) {
+    showToast('提交失败: ' + e.message, 'error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+function escapeArticleHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }

@@ -4,6 +4,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const { getDb } = require('./database');
+const { authMiddleware } = require('./routes-auth');
 
 const app = express();
 const PORT = process.env.PORT || 8081;
@@ -56,9 +57,10 @@ if (fs.existsSync(path.join(publicDir, 'index.html'))) {
 app.use('/api/auth', require('./routes-auth'));
 app.use('/api/posts', require('./routes-posts'));
 app.use('/api/profiles', require('./routes-profiles'));
+app.use('/api/comments', require('./routes-comments'));
 
-// 图片上传接口
-app.post('/api/upload', upload.single('file'), (req, res) => {
+// 图片上传接口（需要登录）
+app.post('/api/upload', authMiddleware, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ code: 400, message: '请选择文件' });
   }
@@ -66,21 +68,30 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   res.json({ code: 200, data: { url } });
 });
 
-// 统计接口
-app.get('/api/stats', (req, res) => {
+// 统计接口（需要登录）
+app.get('/api/stats', authMiddleware, (req, res) => {
   const db = getDb();
   const postCount = db.prepare('SELECT COUNT(*) as count FROM posts').get().count;
   const profileCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get().count;
   const totalViews = db.prepare('SELECT COALESCE(SUM(view_count), 0) as total FROM posts').get().total;
   const categories = db.prepare('SELECT DISTINCT category FROM posts').all().length;
+  const commentCount = db.prepare('SELECT COUNT(*) as count FROM comments').get().count;
+  const pendingComments = db.prepare("SELECT COUNT(*) as count FROM comments WHERE status = 'pending'").get().count;
   res.json({
     code: 200,
-    data: { postCount, profileCount, totalViews, categories }
+    data: { postCount, profileCount, totalViews, categories, commentCount, pendingComments }
   });
 });
 
-// SPA 回退
+// SPA 回退 - 区分前台/后台
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'admin.html'));
+});
 app.get('*', (req, res) => {
+  if (req.path.startsWith('/admin')) {
+    res.sendFile(path.join(__dirname, '..', 'admin.html'));
+    return;
+  }
   const publicIndex = path.join(__dirname, '..', 'public', 'index.html');
   const rootIndex = path.join(__dirname, '..', 'index.html');
   if (fs.existsSync(publicIndex)) {
