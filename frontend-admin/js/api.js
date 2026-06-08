@@ -5,12 +5,21 @@ async function request(url, options = {}) {
   const config = {
     ...options,
   };
+  const headers = { ...(options.headers || {}) };
+  // 自动携带登录 token（如果存在）
+  try {
+    const token = (typeof getToken === 'function') ? getToken() : '';
+    if (token && !headers['Authorization']) {
+      headers['Authorization'] = 'Bearer ' + token;
+    }
+  } catch (e) { /* ignore */ }
   if (config.body && typeof config.body === 'object') {
-    config.headers = { 'Content-Type': 'application/json', ...(config.headers || {}) };
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
     config.body = JSON.stringify(config.body);
   } else if (config.method === 'POST' || config.method === 'PUT') {
-    config.headers = { 'Content-Type': 'application/json', ...(config.headers || {}) };
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
   }
+  config.headers = headers;
   let response;
   try {
     response = await fetch(API_BASE + url, config);
@@ -50,6 +59,18 @@ const api = {
   createProfile: (data) => request('/profiles', { method: 'POST', body: data }),
   updateProfile: (id, data) => request(`/profiles/${id}`, { method: 'PUT', body: data }),
   deleteProfile: (id) => request(`/profiles/${id}`, { method: 'DELETE' }),
+
+  // 评论
+  getPostComments: (postId) => request(`/comments/post/${postId}`),
+  createComment: (data) => request('/comments', { method: 'POST', body: data }),
+  getComments: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/comments?${query}`);
+  },
+  getCommentStats: () => request('/comments/stats'),
+  updateCommentStatus: (id, status) => request(`/comments/${id}/status`, { method: 'PUT', body: { status } }),
+  replyComment: (id, data) => request(`/comments/${id}/reply`, { method: 'POST', body: data }),
+  deleteComment: (id) => request(`/comments/${id}`, { method: 'DELETE' }),
 
   // 统计
   getStats: () => request('/stats'),
