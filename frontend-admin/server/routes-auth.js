@@ -11,6 +11,25 @@ function generateToken() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
+// 从请求头中校验 token，返回登录用户对象，失败返回 null
+function verifyToken(req) {
+  const auth = req.headers && req.headers.authorization;
+  if (!auth || typeof auth !== 'string') return null;
+  const token = auth.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+  return tokens.get(token) || null;
+}
+
+// 中间件：要求登录态
+function requireAuth(req, res, next) {
+  const user = verifyToken(req);
+  if (!user) {
+    return res.status(401).json({ code: 401, message: '未登录或登录已过期' });
+  }
+  req.currentUser = user;
+  next();
+}
+
 // 登录
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
@@ -35,8 +54,7 @@ router.post('/login', (req, res) => {
 
 // 获取当前用户
 router.get('/me', (req, res) => {
-  const token = (req.headers.authorization || '').replace('Bearer ', '');
-  const user = tokens.get(token);
+  const user = verifyToken(req);
   if (!user) {
     return res.status(401).json({ code: 401, message: '未登录' });
   }
@@ -45,9 +63,12 @@ router.get('/me', (req, res) => {
 
 // 退出登录
 router.post('/logout', (req, res) => {
-  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const auth = req.headers.authorization || '';
+  const token = auth.replace(/^Bearer\s+/i, '').trim();
   tokens.delete(token);
   res.json({ code: 200, message: '已退出登录' });
 });
 
 module.exports = router;
+module.exports.verifyToken = verifyToken;
+module.exports.requireAuth = requireAuth;
