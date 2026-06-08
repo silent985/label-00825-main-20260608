@@ -56,6 +56,7 @@ if (fs.existsSync(path.join(publicDir, 'index.html'))) {
 app.use('/api/auth', require('./routes-auth'));
 app.use('/api/posts', require('./routes-posts'));
 app.use('/api/profiles', require('./routes-profiles'));
+app.use('/api/comments', require('./routes-comments'));
 
 // 图片上传接口
 app.post('/api/upload', upload.single('file'), (req, res) => {
@@ -73,9 +74,11 @@ app.get('/api/stats', (req, res) => {
   const profileCount = db.prepare('SELECT COUNT(*) as count FROM profiles').get().count;
   const totalViews = db.prepare('SELECT COALESCE(SUM(view_count), 0) as total FROM posts').get().total;
   const categories = db.prepare('SELECT DISTINCT category FROM posts').all().length;
+  const commentCount = db.prepare('SELECT COUNT(*) as count FROM comments').get().count;
+  const pendingCommentCount = db.prepare("SELECT COUNT(*) as count FROM comments WHERE status = 'pending'").get().count;
   res.json({
     code: 200,
-    data: { postCount, profileCount, totalViews, categories }
+    data: { postCount, profileCount, totalViews, categories, commentCount, pendingCommentCount }
   });
 });
 

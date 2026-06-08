@@ -31,6 +31,20 @@ async function renderDashboard() {
           <div class="stat-label">文章分类</div>
         </div>
       </div>
+      <div class="stat-card" onclick="navigateTo('comments')">
+        <div class="stat-icon orange">${Icons.messageSquare}</div>
+        <div class="stat-info">
+          <div class="stat-value" id="statComments">-</div>
+          <div class="stat-label">评论总数</div>
+        </div>
+      </div>
+      <div class="stat-card" onclick="navigateTo('comments')">
+        <div class="stat-icon red">${Icons.clock}</div>
+        <div class="stat-info">
+          <div class="stat-value" id="statPendingComments">-</div>
+          <div class="stat-label">待审核</div>
+        </div>
+      </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -80,6 +94,8 @@ async function renderDashboard() {
     document.getElementById('statProfiles').textContent = res.data.profileCount;
     document.getElementById('statViews').textContent = res.data.totalViews;
     document.getElementById('statCategories').textContent = res.data.categories;
+    document.getElementById('statComments').textContent = res.data.commentCount;
+    document.getElementById('statPendingComments').textContent = res.data.pendingCommentCount;
   } catch (e) {
     showToast('加载统计数据失败', 'error');
   }
