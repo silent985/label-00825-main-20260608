@@ -1,0 +1,17 @@
+services:
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    container_name: blog-frontend-admin
+    ports:
+      - "8081:8081"
+    volumes:
+      - blog-data:/app/data
+    environment:
+      - PORT=8081
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  blog-data:
