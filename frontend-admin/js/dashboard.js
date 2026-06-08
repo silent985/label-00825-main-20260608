@@ -10,6 +10,15 @@ async function renderDashboard() {
           <div class="stat-label">文章总数</div>
         </div>
       </div>
+      <div class="stat-card" onclick="navigateTo('comments')">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#8B5CF6,#A78BFA);color:#fff;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value" id="statComments">-</div>
+          <div class="stat-label">评论总数 <span id="pendingBadge" style="display:none;color:var(--color-warning);font-size:12px;font-weight:500;"></span></div>
+        </div>
+      </div>
       <div class="stat-card" onclick="navigateTo('profiles')">
         <div class="stat-icon green">${Icons.user}</div>
         <div class="stat-info">
@@ -77,9 +86,15 @@ async function renderDashboard() {
   try {
     const res = await api.getStats();
     document.getElementById('statPosts').textContent = res.data.postCount;
+    document.getElementById('statComments').textContent = res.data.commentCount || 0;
     document.getElementById('statProfiles').textContent = res.data.profileCount;
     document.getElementById('statViews').textContent = res.data.totalViews;
     document.getElementById('statCategories').textContent = res.data.categories;
+    if (res.data.pendingComments > 0) {
+      const badge = document.getElementById('pendingBadge');
+      badge.style.display = 'inline';
+      badge.textContent = `(${res.data.pendingComments} 待审)`;
+    }
   } catch (e) {
     showToast('加载统计数据失败', 'error');
   }

@@ -11,6 +11,17 @@ function generateToken() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
+// 认证中间件
+function authMiddleware(req, res, next) {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const user = tokens.get(token);
+  if (!user) {
+    return res.status(401).json({ code: 401, message: '未登录或登录已过期' });
+  }
+  req.user = user;
+  next();
+}
+
 // 登录
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
@@ -34,13 +45,8 @@ router.post('/login', (req, res) => {
 });
 
 // 获取当前用户
-router.get('/me', (req, res) => {
-  const token = (req.headers.authorization || '').replace('Bearer ', '');
-  const user = tokens.get(token);
-  if (!user) {
-    return res.status(401).json({ code: 401, message: '未登录' });
-  }
-  res.json({ code: 200, data: user });
+router.get('/me', authMiddleware, (req, res) => {
+  res.json({ code: 200, data: req.user });
 });
 
 // 退出登录
@@ -51,3 +57,5 @@ router.post('/logout', (req, res) => {
 });
 
 module.exports = router;
+module.exports.authMiddleware = authMiddleware;
+module.exports.tokens = tokens;
