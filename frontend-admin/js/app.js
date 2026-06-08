@@ -5,6 +5,7 @@ window._prevPage = 'dashboard';
 const pageTitles = {
   dashboard: '仪表盘',
   posts: '文章管理',
+  comments: '评论管理',
   profiles: '个人资料',
   blog: '博客浏览',
   article: '文章详情',
@@ -41,6 +42,7 @@ function navigateTo(page) {
   switch (page) {
     case 'dashboard': renderDashboard(); break;
     case 'posts': renderPosts(); break;
+    case 'comments': renderAdminComments(); break;
     case 'profiles': renderProfiles(); break;
     case 'blog': renderBlog(); break;
   }

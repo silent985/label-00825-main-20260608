@@ -107,9 +107,19 @@ const onBlogSearch = debounce(function (val) {
   loadBlogPosts();
 }, 400);
 
+let blogArticleComments = {
+  list: [],
+  total: 0,
+  page: 1,
+  pageSize: 10,
+  postId: null,
+};
+
 // 文章详情
 async function viewArticle(id) {
   navigateTo('article');
+  blogArticleComments.postId = id;
+  blogArticleComments.page = 1;
   const container = document.getElementById('page-article');
   container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--color-text-placeholder);">加载中...</div>';
 
@@ -131,14 +141,58 @@ async function viewArticle(id) {
                 <span>${Icons.folder} ${post.category}</span>
                 <span>${Icons.calendar} ${formatDate(post.created_at)}</span>
                 <span>${Icons.eye} ${post.view_count} 次阅读</span>
+                <span id="blogCommentCountBadge">${Icons.messageSquare} 0 条评论</span>
                 ${post.tags ? `<span>${Icons.tag} ${post.tags}</span>` : ''}
               </div>
             </div>
             <div class="preview-content">${markdownToHtml(post.content)}</div>
           </div>
         </div>
+
+        <div class="comment-section" id="blogCommentSection">
+          <div class="card" style="margin-top:24px;">
+            <div class="card-body">
+              <h3 class="comment-section-title">${Icons.messageSquare} 发表评论</h3>
+              <div class="comment-form">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">昵称 <span class="required">*</span></label>
+                    <input class="form-input" id="blogCommentNickname" placeholder="请输入您的昵称">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">邮箱</label>
+                    <input class="form-input" id="blogCommentEmail" placeholder="请输入您的邮箱（选填）">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">网站</label>
+                  <input class="form-input" id="blogCommentWebsite" placeholder="请输入您的网站（选填）">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">评论内容 <span class="required">*</span></label>
+                  <textarea class="form-textarea" id="blogCommentContent" rows="4" placeholder="写下您的看法..."></textarea>
+                </div>
+                <button class="btn btn-primary" id="blogSubmitCommentBtn" onclick="submitBlogComment()">
+                  ${Icons.send} 提交评论
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:24px;">
+            <div class="card-body">
+              <h3 class="comment-section-title" id="blogCommentsListTitle">${Icons.messageSquare} 评论列表</h3>
+              <div id="blogCommentsList">
+                <div style="text-align:center;padding:32px;color:var(--color-text-placeholder);">加载中...</div>
+              </div>
+              <div id="blogCommentsPagination"></div>
+            </div>
+          </div>
+        </div>
       </div>
     `;
+
+    loadBlogComments();
   } catch (e) {
     container.innerHTML = `
       <div class="empty-state">
@@ -148,4 +202,122 @@ async function viewArticle(id) {
       </div>
     `;
   }
+}
+
+async function loadBlogComments() {
+  try {
+    const res = await api.getPostComments(blogArticleComments.postId, {
+      page: blogArticleComments.page,
+      pageSize: blogArticleComments.pageSize,
+    });
+    blogArticleComments.list = res.data.list;
+    blogArticleComments.total = res.data.total;
+    renderBlogCommentsList();
+    renderBlogCommentsPagination();
+    document.getElementById('blogCommentCountBadge').innerHTML = `${Icons.messageSquare} ${blogArticleComments.total} 条评论`;
+    document.getElementById('blogCommentsListTitle').innerHTML = `${Icons.messageSquare} 评论列表 (${blogArticleComments.total})`;
+  } catch (e) {
+    document.getElementById('blogCommentsList').innerHTML = '<div style="text-align:center;padding:32px;color:var(--color-danger);">评论加载失败</div>';
+  }
+}
+
+function renderBlogCommentsList() {
+  const container = document.getElementById('blogCommentsList');
+  if (!container) return;
+
+  if (blogArticleComments.list.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding:32px;">
+        ${Icons.messageSquare}
+        <p>暂无评论，快来抢沙发吧~</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = blogArticleComments.list.map(comment => `
+    <div class="comment-item">
+      <div class="comment-avatar">${getInitials(comment.nickname)}</div>
+      <div class="comment-body">
+        <div class="comment-header">
+          <span class="comment-author">${blogEscapeHtml(comment.nickname)}</span>
+          <span class="comment-time">${formatDate(comment.created_at)}</span>
+        </div>
+        <div class="comment-content">${blogEscapeHtml(comment.content)}</div>
+        ${comment.reply_content ? `
+          <div class="comment-reply">
+            <div class="comment-reply-header">
+              <span class="comment-reply-label">博主回复</span>
+              <span class="comment-time">${formatDate(comment.reply_at)}</span>
+            </div>
+            <div class="comment-reply-content">${blogEscapeHtml(comment.reply_content)}</div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderBlogCommentsPagination() {
+  const container = document.getElementById('blogCommentsPagination');
+  if (!container) return;
+  const totalPages = Math.ceil(blogArticleComments.total / blogArticleComments.pageSize);
+  if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+  let btns = '';
+  btns += `<span class="pagination-info">共 ${blogArticleComments.total} 条评论</span>`;
+  btns += `<button class="pagination-btn" ${blogArticleComments.page <= 1 ? 'disabled' : ''} onclick="goBlogCommentPage(${blogArticleComments.page - 1})">${Icons.chevronLeft}</button>`;
+  for (let i = 1; i <= totalPages; i++) {
+    btns += `<button class="pagination-btn ${i === blogArticleComments.page ? 'active' : ''}" onclick="goBlogCommentPage(${i})">${i}</button>`;
+  }
+  btns += `<button class="pagination-btn" ${blogArticleComments.page >= totalPages ? 'disabled' : ''} onclick="goBlogCommentPage(${blogArticleComments.page + 1})">${Icons.chevronRight}</button>`;
+  container.innerHTML = `<div class="pagination" style="justify-content:center;">${btns}</div>`;
+}
+
+function goBlogCommentPage(page) {
+  blogArticleComments.page = page;
+  loadBlogComments();
+}
+
+async function submitBlogComment() {
+  const nickname = document.getElementById('blogCommentNickname').value.trim();
+  const email = document.getElementById('blogCommentEmail').value.trim();
+  const website = document.getElementById('blogCommentWebsite').value.trim();
+  const content = document.getElementById('blogCommentContent').value.trim();
+
+  if (!nickname) { showToast('请输入昵称', 'warning'); return; }
+  if (!content) { showToast('请输入评论内容', 'warning'); return; }
+
+  const btn = document.getElementById('blogSubmitCommentBtn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  try {
+    await api.createComment({
+      post_id: blogArticleComments.postId,
+      nickname,
+      email,
+      website,
+      content,
+    });
+    showToast('评论提交成功，等待审核', 'success');
+    document.getElementById('blogCommentNickname').value = '';
+    document.getElementById('blogCommentEmail').value = '';
+    document.getElementById('blogCommentWebsite').value = '';
+    document.getElementById('blogCommentContent').value = '';
+    blogArticleComments.page = 1;
+    loadBlogComments();
+  } catch (e) {
+    showToast('提交失败: ' + e.message, 'error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+function blogEscapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
