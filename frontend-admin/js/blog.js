@@ -137,8 +137,10 @@ async function viewArticle(id) {
             <div class="preview-content">${markdownToHtml(post.content)}</div>
           </div>
         </div>
+        <div id="postCommentsSection" style="margin-top:var(--space-lg);"></div>
       </div>
     `;
+    renderPostComments(id);
   } catch (e) {
     container.innerHTML = `
       <div class="empty-state">

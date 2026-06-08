@@ -10,25 +10,25 @@ async function renderDashboard() {
           <div class="stat-label">文章总数</div>
         </div>
       </div>
-      <div class="stat-card" onclick="navigateTo('profiles')">
-        <div class="stat-icon green">${Icons.user}</div>
+      <div class="stat-card" onclick="navigateTo('comments')">
+        <div class="stat-icon green">${Icons.messageCircle || Icons.user}</div>
         <div class="stat-info">
-          <div class="stat-value" id="statProfiles">-</div>
-          <div class="stat-label">个人资料</div>
+          <div class="stat-value" id="statComments">-</div>
+          <div class="stat-label">评论总数</div>
+        </div>
+      </div>
+      <div class="stat-card" onclick="navigateTo('comments')">
+        <div class="stat-icon orange">${Icons.warning}</div>
+        <div class="stat-info">
+          <div class="stat-value" id="statPendingComments">-</div>
+          <div class="stat-label">待审核评论</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon orange">${Icons.eye}</div>
+        <div class="stat-icon purple">${Icons.eye}</div>
         <div class="stat-info">
           <div class="stat-value" id="statViews">-</div>
           <div class="stat-label">总浏览量</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon purple">${Icons.folder}</div>
-        <div class="stat-info">
-          <div class="stat-value" id="statCategories">-</div>
-          <div class="stat-label">文章分类</div>
         </div>
       </div>
     </div>
@@ -77,9 +77,9 @@ async function renderDashboard() {
   try {
     const res = await api.getStats();
     document.getElementById('statPosts').textContent = res.data.postCount;
-    document.getElementById('statProfiles').textContent = res.data.profileCount;
+    document.getElementById('statComments').textContent = res.data.commentCount;
+    document.getElementById('statPendingComments').textContent = res.data.pendingCommentCount;
     document.getElementById('statViews').textContent = res.data.totalViews;
-    document.getElementById('statCategories').textContent = res.data.categories;
   } catch (e) {
     showToast('加载统计数据失败', 'error');
   }

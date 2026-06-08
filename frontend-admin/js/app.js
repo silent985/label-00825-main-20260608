@@ -6,12 +6,18 @@ const pageTitles = {
   dashboard: '仪表盘',
   posts: '文章管理',
   profiles: '个人资料',
+  comments: '评论管理',
   blog: '博客浏览',
   article: '文章详情',
 };
 
 function navigateTo(page) {
   if (page !== 'article') window._prevPage = page;
+
+  if (isGuest && !guestPages.includes(page)) {
+    showLoginPage();
+    return;
+  }
 
   // 隐藏所有页面
   document.querySelectorAll('.page-view').forEach(el => el.style.display = 'none');
@@ -42,6 +48,7 @@ function navigateTo(page) {
     case 'dashboard': renderDashboard(); break;
     case 'posts': renderPosts(); break;
     case 'profiles': renderProfiles(); break;
+    case 'comments': renderComments(); break;
     case 'blog': renderBlog(); break;
   }
 
@@ -66,6 +73,10 @@ document.addEventListener('DOMContentLoaded', async function () {
   if (currentUser) {
     const hash = location.hash.replace('#', '');
     const page = pageTitles[hash] ? hash : 'dashboard';
+    navigateTo(page);
+  } else if (isGuest) {
+    const hash = location.hash.replace('#', '');
+    const page = guestPages.includes(hash) ? hash : 'blog';
     navigateTo(page);
   }
 });
