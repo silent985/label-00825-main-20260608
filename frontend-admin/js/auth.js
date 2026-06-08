@@ -1,5 +1,9 @@
 // ===== 登录认证管理 =====
 let currentUser = null;
+let isGuest = false;
+
+const guestPages = ['blog', 'article'];
+const adminPages = ['dashboard', 'posts', 'profiles', 'comments'];
 
 function getToken() {
   return localStorage.getItem('blog_token') || '';
@@ -18,14 +22,59 @@ function showLoginPage() {
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('appLayout').style.display = 'none';
   currentUser = null;
+  isGuest = false;
 }
 
-// 隐藏登录页，显示主界面
+// 隐藏登录页，显示主界面（管理员）
 function showApp(user) {
   currentUser = user;
+  isGuest = false;
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appLayout').style.display = '';
   updateHeaderUser(user);
+  updateNavVisibility();
+}
+
+// 游客模式：显示主界面但仅限博客浏览
+function showGuestApp() {
+  currentUser = null;
+  isGuest = true;
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appLayout').style.display = '';
+  updateHeaderGuest();
+  updateNavVisibility();
+}
+
+// 更新 header 游客信息
+function updateHeaderGuest() {
+  const avatarEl = document.getElementById('headerAvatar');
+  const nameEl = document.getElementById('headerUserName');
+  if (avatarEl) avatarEl.textContent = '?';
+  if (nameEl) nameEl.textContent = '游客';
+}
+
+// 根据登录状态更新侧边栏可见性
+function updateNavVisibility() {
+  document.querySelectorAll('.nav-item').forEach(el => {
+    const page = el.dataset.page;
+    if (isGuest) {
+      el.style.display = guestPages.includes(page) ? '' : 'none';
+    } else {
+      el.style.display = '';
+    }
+  });
+  document.querySelectorAll('[data-auth="admin"]').forEach(el => {
+    el.style.display = isGuest ? 'none' : '';
+  });
+  const loginBtn = document.getElementById('headerLoginBtn');
+  const userDropdown = document.getElementById('userDropdown');
+  if (isGuest) {
+    if (loginBtn) loginBtn.style.display = '';
+    if (userDropdown) userDropdown.style.display = 'none';
+  } else {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (userDropdown) userDropdown.style.display = '';
+  }
 }
 
 // 更新 header 用户信息
@@ -99,9 +148,8 @@ function handleLogout() {
         });
       } catch (e) { /* ignore */ }
       clearToken();
-      showLoginPage();
-      document.getElementById('loginUsername').value = '';
-      document.getElementById('loginPassword').value = '';
+      showGuestApp();
+      navigateTo('blog');
     },
     'warning',
     Icons.logOut
@@ -112,7 +160,7 @@ function handleLogout() {
 async function checkAuth() {
   const token = getToken();
   if (!token) {
-    showLoginPage();
+    showGuestApp();
     return;
   }
   try {
@@ -126,7 +174,7 @@ async function checkAuth() {
     }
   } catch (e) { /* ignore */ }
   clearToken();
-  showLoginPage();
+  showGuestApp();
 }
 
 // 用户下拉菜单

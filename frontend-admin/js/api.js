@@ -5,6 +5,10 @@ async function request(url, options = {}) {
   const config = {
     ...options,
   };
+  const token = localStorage.getItem('blog_token') || '';
+  if (token) {
+    config.headers = { 'Authorization': 'Bearer ' + token, ...(config.headers || {}) };
+  }
   if (config.body && typeof config.body === 'object') {
     config.headers = { 'Content-Type': 'application/json', ...(config.headers || {}) };
     config.body = JSON.stringify(config.body);
@@ -50,6 +54,18 @@ const api = {
   createProfile: (data) => request('/profiles', { method: 'POST', body: data }),
   updateProfile: (id, data) => request(`/profiles/${id}`, { method: 'PUT', body: data }),
   deleteProfile: (id) => request(`/profiles/${id}`, { method: 'DELETE' }),
+
+  // 评论
+  getComments: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/comments?${query}`);
+  },
+  getPostComments: (postId) => request(`/comments/post/${postId}`),
+  createComment: (data) => request('/comments', { method: 'POST', body: data }),
+  approveComment: (id) => request(`/comments/${id}/approve`, { method: 'PUT' }),
+  rejectComment: (id) => request(`/comments/${id}/reject`, { method: 'PUT' }),
+  replyComment: (id, reply) => request(`/comments/${id}/reply`, { method: 'PUT', body: { reply } }),
+  deleteComment: (id) => request(`/comments/${id}`, { method: 'DELETE' }),
 
   // 统计
   getStats: () => request('/stats'),

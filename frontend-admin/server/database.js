@@ -58,6 +58,18 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL,
+      nickname TEXT NOT NULL,
+      email TEXT DEFAULT '',
+      content TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      reply TEXT DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+    );
   `);
 }
 
