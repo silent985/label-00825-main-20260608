@@ -53,4 +53,19 @@ const api = {
 
   // 统计
   getStats: () => request('/stats'),
+
+  // 评论
+  getPostComments: (postId, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/comments/post/${postId}?${query}`);
+  },
+  createComment: (data) => request('/comments', { method: 'POST', body: data }),
+  getComments: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/comments?${query}`);
+  },
+  getComment: (id) => request(`/comments/${id}`),
+  updateCommentStatus: (id, status) => request(`/comments/${id}/status`, { method: 'PUT', body: { status } }),
+  replyComment: (id, reply_content) => request(`/comments/${id}/reply`, { method: 'PUT', body: { reply_content } }),
+  deleteComment: (id) => request(`/comments/${id}`, { method: 'DELETE' }),
 };

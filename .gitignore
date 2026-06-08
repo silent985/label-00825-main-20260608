@@ -32,3 +32,4 @@ frontend-admin/data/
 
 # === Docker ===
 docker-compose.override.yml
+chat.md
